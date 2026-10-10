@@ -1,38 +1,25 @@
 # DocuCraft
 
-**A playful, privacy-first document studio for Android.**
+**A privacy-first document studio for Android.**
 
-DocuCraft is a native Kotlin application with an expressive interface: deep ink surfaces, electric-lime accents, violet details, spring motion, and expandable document cards.
+DocuCraft is a native Kotlin and Jetpack Compose app with an experimental dark interface, electric-lime accents, violet details, and animated document cards.
 
-## Current prototype
+## Features
 
-- Native Android app built with Kotlin and Jetpack Compose.
-- Experimental dark UI with animated expandable document rows and a custom studio dashboard.
-- Quick capture using Android's system camera preview.
-- Import multiple images through Android's system picker.
-- Combine selected images into a multi-page PDF.
-- Keep generated PDFs in app-private storage.
-- Search, share/export, and delete generated PDFs.
-- No app network permission; documents are not uploaded by this prototype.
+- Full document scanning workflow powered by Google Play services Document Scanner, including automatic edge detection, crop and perspective adjustment, image enhancement, and multi-page capture.
+- Scanner can return PDF and JPEG output; the app saves the resulting PDF in app-private storage.
+- Import multiple images and create a PDF.
+- Search saved PDFs, export/share documents, and delete them.
+- No app-defined INTERNET permission; scan results are copied into the app's private documents directory.
 
-## Requirements
+## Scanner requirements
 
-- Android Studio with Android SDK API 35.
-- JDK 17.
-- Android 8.0 (API 26) or newer.
+A compatible Android device or emulator with Google Play services is required. The first use may download the scanner module. The scanner experience is supplied by Google Play services rather than implemented as a custom camera screen in DocuCraft.
 
-## Run
+## Build and run
 
-1. Clone this repository and open the project root in Android Studio.
-2. Allow Gradle to sync and install any requested SDK components.
-3. Run the `app` configuration on an emulator or connected device.
+1. Open the project folder in Android Studio.
+2. Wait for Gradle sync and dependency downloads to finish.
+3. Run the `app` configuration on a compatible device or emulator.
 
-GitHub Actions builds the debug APK and runs unit tests on pushes and pull requests to `main`.
-
-## Current limitations
-
-This is an early functional prototype, not a production-grade scanner. Quick capture uses Android's camera preview intent and does not provide a live in-app camera, edge detection, perspective correction, filters, OCR, or searchable PDF text. Imported images are embedded as image-based PDF pages. Export uses Android's file-sharing mechanism. These capabilities can be expanded after the first device test.
-
-## Privacy
-
-PDF files are stored in the app's private internal storage. Exporting shares a PDF with the app selected by the user. Uninstalling the app removes its private files. Images are read through Android's system picker.
+The updated code has been committed to GitHub, but has not yet been verified on a physical device. Please run it locally and share any build or runtime errors so they can be fixed.
