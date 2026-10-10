@@ -13,6 +13,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -92,16 +96,24 @@ private fun DocuCraftApp() {
             documents = loadDocuments(context)
         }
     }
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        if (bitmap != null) {
-            status = try {
-                val file = createPdfFromBitmaps(context, listOf(bitmap))
+    val scannerOptions = remember { GmsDocumentScannerOptions.Builder().setGalleryImportAllowed(true).setPageLimit(50).setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_PDF, GmsDocumentScannerOptions.RESULT_FORMAT_JPEG).setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL).build() }
+    val scanner = remember { GmsDocumentScanning.getClient(scannerOptions) }
+    val scanLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val pdfUri = GmsDocumentScanningResult.fromActivityResultIntent(result.data)?.pdf?.uri
+            if (pdfUri != null) {
+                val saved = copyScannedPdf(context, pdfUri)
+                status = saved.fold({ "Scan saved: " + it.name }, { "Couldn't save scan: " + (it.message ?: "unknown error") })
                 documents = loadDocuments(context)
-                "Scan saved: " + file.name
-            } catch (error: Exception) { "Couldn't save scan: " + (error.message ?: "unknown error") }
-        }
+            } else status = "No PDF was returned by the scanner."
+        } else status = "Scan cancelled."
     }
-    MaterialTheme(colorScheme = darkColorScheme(primary = Lime, onPrimary = Ink, background = Ink, surface = SurfaceColor, onSurfaceColor = Paper, secondary = Violet)) {
+    val launchScanner = {
+        scanner.getStartScanIntent(context as ComponentActivity)
+            .addOnSuccessListener { sender -> scanLauncher.launch(IntentSenderRequest.Builder(sender).build()) }
+            .addOnFailureListener { error -> status = "Scanner unavailable: " + (error.message ?: "check Google Play services") }
+    }
+    MaterialTheme(colorScheme = darkColorScheme(primary = Lime, onPrimary = Ink, background = Ink, surface = SurfaceColor, onSurface = Paper, secondary = Violet)) {
         Scaffold(containerColor = Ink, bottomBar = { BottomDock() }) { padding ->
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
@@ -120,7 +132,7 @@ private fun DocuCraftApp() {
                         }
                     }
                 }
-                item { HeroCard(documents.size, { cameraLauncher.launch(null) }, { importLauncher.launch("image/*") }) }
+                item { HeroCard(documents.size, { launchScanner() }, { importLauncher.launch("image/*") }) }
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -224,6 +236,16 @@ private fun BottomDock() {
 
 private fun loadDocuments(context: Context): List<LocalDocument> =
     File(context.filesDir, "documents").listFiles()?.filter { it.isFile && it.extension.equals("pdf", true) }?.map { LocalDocument(it) }?.sortedByDescending { it.modified } ?: emptyList()
+
+private fun copyScannedPdf(context: Context, uri: Uri): Result<File> = runCatching {
+    val directory = File(context.filesDir, "documents").apply { mkdirs() }
+    val stamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+    val file = File(directory, "DocuCraft_$stamp.pdf")
+    val input = context.contentResolver.openInputStream(uri)
+    requireNotNull(input) { "The scanner returned an unreadable PDF." }
+    input.use { source -> FileOutputStream(file).use { output -> source.copyTo(output) } }
+    file
+}
 
 private fun createPdfFromUris(context: Context, uris: List<Uri>): Result<File> = runCatching {
     val images = uris.mapNotNull { uri -> context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } }
